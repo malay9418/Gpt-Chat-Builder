@@ -1,0 +1,411 @@
+<style>
+    #wpcontent {
+        padding-left: 0 !important;
+    }
+    #wpbody-content {
+        padding-bottom: 0 !important;
+    }
+    #wrap {
+        background-color: rgb(3, 7, 21);
+        font-family: sans-serif;
+        min-height: 100dvh;
+        width: 100%;
+        display: flex;
+    }
+    #flow-window {
+        flex: 1;
+    }
+    #add-window {
+        width: 20%;
+        position: relative;
+    }
+    #add-window > div {
+        padding: 50px 20px;
+        background-color: black;
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 20%;
+        height: 100vh;
+    }
+    #add-window > div button {
+        display: block;
+        margin: 0 auto;
+        border-radius: 4px;
+        background-color: #00c7a6;
+        border: none;
+        color: #FFFFFF;
+        text-align: center;
+        transition: all 0.5s;
+        cursor: pointer;
+        padding: 10px;
+        font-size: medium;
+        width: 100px;
+    }
+    .step {
+        background-color: #fff;
+        color: #00c7a6;
+        font-weight: bold;
+        width: 100%;
+        border-radius: 10px;
+        max-width: 400px;
+        padding: 1rem;
+        display: block;
+        margin: 5rem auto;
+    }
+    .step h1 {
+        text-align: center;
+    }
+    .step h5 {
+        color: #00c7a6;
+        text-align: center;
+    }
+    .step textarea {
+        width: 100%;
+    }
+    .step label,input {
+        margin: 10px 0;
+    }
+    .step ul li {
+        background-color: #00c7a6;
+        border: 1px solid #000;
+        color: black;
+        padding: 5px 0;
+        padding-left: 10px;
+        position: relative;
+    }
+    .step ul li a {
+        position: absolute;
+        right: 5px;
+        cursor: pointer;
+        color: red;
+        margin-left: 10px;
+    }
+    .add-option {
+        margin-left: 10px;
+        border-radius: 4px;
+        background-color: #00c7a6;
+        border: none;
+        color: #FFFFFF;
+        text-align: center;
+        transition: all 0.5s;
+        cursor: pointer;
+        padding: 5px;
+        font-size: medium;
+    }
+    .add-option-name {
+        padding: 5px;
+    }
+    hr {
+        border: none;
+        height: 3px;
+        background-color: #00c7a6;
+    }
+    .delete {
+        display: block;
+        margin: 5px auto;
+        border-radius: 4px;
+        background-color: #00c7a6;
+        border: none;
+        color: #FFFFFF;
+        text-align: center;
+        transition: all 0.5s;
+        cursor: pointer;
+        padding: 10px;
+        font-size: medium;
+        width: 100px;
+        transition: all 0.5s;
+    }
+    .delete:hover {
+        background-color: #009078;
+    }
+    .info {
+        color: red;
+    }
+    #add-window > div  div {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #00c7a6;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+    #add-window select {
+        margin-left: 10px;
+        flex: 1;
+    }
+    #add-window input {
+        margin-left: 10px;
+        flex: 1;
+        border: 1px solid #00c7a6;
+        height: 1.5rem;
+    }
+    #add-window h1 {
+        font-size: medium;
+        display: block;
+        color: #00c7a6;
+        text-align: center;
+    }
+    #add-step-btn {
+        margin-bottom: 4rem !important;
+    }
+    .warning {
+        color: red;
+        text-align: center;
+    }
+    #progress {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100dvh;
+        background-color: #000000;
+        color: #fff;
+        font-size: medium;
+        opacity: 0.5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+<div id="wrap">
+    <div id="progress" style="display: none;">
+    </div>
+    <div id="flow-window">
+        <div class="step openai">
+            <h1>SETTINGS</h1>
+            <hr/>
+            <p>OPENAI KEY: </p>
+            <input/>
+        </div>
+    </div>
+    <div id="add-window">
+        <div id="sticky-window">
+            <hr/>
+            <h1>ADD STEP</h1>
+            <hr/>
+            <div>
+                <label>TYPE: </label>
+                <select id="step-type">
+                    <option value="normal">NORMAL MESSAGE</option>
+                    <option value="ai-msg">AI MESSAGE</option>
+                    <option value="ai-qry">AI QUERY</option>
+                    <option value="option">SEND OPTIONS</option>
+                </select>
+            </div>
+            <div>
+                <label>NAME: </label>
+                <input id="step-name" class="ignore"/>
+            </div>
+            <button id="add-step-btn">ADD +</button>
+            <p class="warning" id="add-warning"></p>
+            <hr/>
+            <h1>SAVE FLOW</h1>
+            <hr/>
+            <button id="save-flow-btn">SAVE</button>
+            <p class="warning" id="save-warning"></p>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    const form = document.getElementById('gpt-form');
+    const progress = document.getElementById('progress');
+    const stickyWindow = document.getElementById('sticky-window');
+    function deleteOption(option) {
+        parentLi = option.parentNode;
+        parentUl = parentLi.parentNode;
+        parentUl.removeChild(parentLi);
+    }
+    function addOption(button) {
+        const parentUl = button.parentNode.querySelector("ul");
+        const inputElement = button.previousElementSibling;
+        const optionText = inputElement.value.trim();
+        if (optionText !== "") {
+            const newLi = document.createElement("li");
+            newLi.innerHTML = optionText + '<a onclick="deleteOption(this)">DELETE</a>';
+            parentUl.appendChild(newLi);
+            inputElement.value = "";
+        }
+    }
+    function deleteMe(element) {
+        const step = element.closest('.step');
+        step.remove();
+    }
+    const addStepBtn = document.getElementById("add-step-btn");
+    addStepBtn.addEventListener("click", () => {
+        const stepType = document.getElementById("step-type").value;
+        stepNameInput = document.getElementById("step-name");
+        const stepName = stepNameInput.value;
+        if (stepName == "") {
+            document.getElementById("add-warning").innerText = "Please enter a step name.";
+            return;
+        }
+        document.getElementById("add-warning").innerText = "";
+        const newStep = document.createElement("div");
+        newStep.classList.add("step");
+        const flowWindow = document.getElementById("flow-window");
+        if (stepType == "normal") {
+            newStep.classList.add("normal");
+            newStep.innerHTML = `<h1>${stepName.toUpperCase()}</h1>
+            <hr/>
+            <h5>NORMAL MESSAGE</h5>
+            <p>MESSAGE: </p>
+            <textarea rows="2"></textarea>
+            <p class="info">This reply message will be send as it is</p>
+            <button class="delete" onclick="deleteMe(this)">DELETE</button>`;
+            flowWindow.appendChild(newStep);
+            stepNameInput.value = "";
+        } else if (stepType == "ai-msg") {
+            newStep.classList.add("ai-msg");
+            newStep.innerHTML = `<h1>${stepName.toUpperCase()}</h1>
+            <hr/>
+            <h5>AI MESSAGE</h5>
+            <p>PROMPT: </p>
+            <textarea rows="3"></textarea>
+            <p class="info">This reply will be generated by ai</p>
+            <button class="delete" onclick="deleteMe(this)">DELETE</button>`;
+            flowWindow.appendChild(newStep);
+            stepNameInput.value = "";
+        } else if ( stepType == "ai-qry") {
+            newStep.classList.add("ai-qry");
+            newStep.innerHTML = `<h1>${stepName.toUpperCase()}</h1>
+            <hr/>
+            <h5>AI QUERY</h5>
+            <p>What Do You Want To Query For ?: </p>
+            <input/>
+            <p>SUCCESS: </p>
+            <textarea rows="3"></textarea>
+            <p>ELSE: </p>
+            <textarea rows="3"></textarea>
+            <label>KEY: </label><input/>
+            <p class="info">This message will ask user for into based on key name and query, Please enter a unique key name similar to your query</p>
+            <button class="delete" onclick="deleteMe(this)">DELETE</button>`;
+            flowWindow.appendChild(newStep);
+            stepNameInput.value = "";
+        } else if ( stepType == "option") {
+            newStep.classList.add("option");
+            newStep.innerHTML = `<h1>${stepName.toUpperCase()}</h1>
+            <hr/>
+            <h5>SEND OPTIONS</h5>
+            <label>NAME: </label><input/>
+            <p>OPTIONS: </p>
+            <ul>
+            </ul>
+            <input class="add-option-name ignore"/><button onclick="addOption(this)" class="add-option">ADD +</button>
+            <p class="info">These options will be sent to user for choosing</p>
+            <button class="delete" onclick="deleteMe(this)">DELETE</button>`;
+            flowWindow.appendChild(newStep);
+            stepNameInput.value = "";
+        }
+    });
+    const saveFlowBtn = document.getElementById("save-flow-btn");
+    saveFlowBtn.addEventListener("click", () => {
+        const inputs = document.querySelectorAll("input, textarea");
+        const saveWarn = document.getElementById("save-warning");
+        for (const input of inputs) {
+            if (input.value == "") {
+                if (input.classList.contains("ignore")) {
+                    continue;
+                }
+                saveWarn.innerText = "Please fill all the fields";
+                return;
+            }
+        }
+        progress.style.display = "flex";
+        progress.innerHTML = "Saving... ";
+        stickyWindow.style.opacity = "0.5";
+        stickyWindow.style.pointerEvents = "none";
+        saveWarn.innerText = "";
+        let stepsData = [];
+        const steps = document.querySelectorAll(".step");
+        for (const step of steps) {
+            const stepType = step.classList.item(1);
+            data = {type: stepType}
+            if (stepType == "normal") {
+                data.msg = step.querySelector("textarea").value;
+                stepsData.push(data);
+            } else if (stepType == "ai-msg") {
+                const task = step.querySelector("textarea").value;
+                data.prompt = `You are a user data collection tool. Every message you get is a user-generated input from my chatting system. ${task}
+
+The only rules to follow are:
+- Reply politely
+- Ask with Please
+
+Reply with the following JSON:
+
+{
+    "reply": "foo_reply"
+}
+
+The "reply" key is the reply message will be sent back to user`;
+                stepsData.push(data);
+            } else if (stepType == "ai-qry") {
+                const inputElements = step.querySelectorAll("input");
+                const textareaElements = step.querySelectorAll("textarea")
+                const query = inputElements[0].value.trim();
+                const onPass = textareaElements[0].value.trim();
+                const elseCase = textareaElements[1].value.trim();
+                const key = inputElements[1].value.trim();
+                data.prompt = `You are a user data collection tool. Every message you get is a user-generated input from my chatting system. Tell me if message it contains ${query} or not.
+if yes:
+- ${onPass}
+otherwise:
+- ${elseCase}
+ 
+The only rules to follow are:
+- Ask with Please
+- Always ask for something if it's possiable to get that information
+ 
+Reply with the following JSON:
+ 
+{
+    "pass": true,
+    "${key}": "foo",
+    "reply": "foo_reply"
+}
+ 
+The "reply" key is the reply message will be sent back to user`;
+                stepsData.push(data);   
+            } else if (stepType == "option") {
+                const optionName = step.querySelector("input").value.trim();
+                const options = []
+                for (const option of step.querySelectorAll("ul li")) {
+                    options.push(option.innerText.trim().split("\n")[0]);
+                }
+                if (options.length > 0) {
+                    data.name = optionName;
+                    data.options = options;
+                    stepsData.push(data);
+                }
+            }
+
+        }
+        fetch('', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                nonce: 'YOUR_NONCE',
+                data: stepsData
+            })
+        })
+        .then(response => {
+            console.log(response);
+            if (!response.ok) {
+                throw new Error('Error: Some error occurred serverside');
+            }
+            console.log('Success: Data saved successfully.'); 
+            progress.style.display = "none";
+            progress.innerHTML = "";
+            stickyWindow.style.opacity = "1";
+            stickyWindow.style.pointerEvents = "auto";
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    });
+</script>

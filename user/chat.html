@@ -1,0 +1,287 @@
+<style>
+    html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    footer {
+        display: none;
+    }
+    #chat-body {
+        position: fixed;
+        top: 0;
+        left: 0;
+        background-color: gray;
+        margin: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: 100vw !important;
+        display: flex;
+        flex-direction: column;
+    }
+    #sticky-head {
+        display: flex;
+        width: 100%;
+        padding: 1rem;
+        align-items: center;
+        font-family: sans-serif;
+        font-weight: bold;
+        color: aliceblue;
+        background-color: rgb(0, 0, 24);
+    }
+    #sticky-head > img {
+        height: 2rem;
+        margin: 0 1rem;
+    }
+    #sticky-head > span {
+        font-size: 1.5rem;
+    }
+    #input-div {
+        padding: 1rem;
+        background-color: rgb(7, 7, 31);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    #input-div > img{
+        height: 1.5rem;
+        margin-left: 1rem;
+    }
+    #input-div > input {
+        height: 2rem;
+        width: 80%;
+        border-radius: 0.5rem;
+        max-width: 600px;
+        font-size: medium;
+        font-weight: bold;
+    }
+    #input-div > input:focus {
+        outline: 2px solid blue;
+    }
+    #history {
+        flex: 1;
+        background-color: rgb(171, 171, 255);
+        font-family: sans-serif;
+        color: white;
+        overflow-y: scroll;
+    }
+    #history > .message {
+        font-size: medium;
+        font-weight: bold;
+        padding: 1.5rem;
+        margin: 1rem;
+    }
+    .from-bot {
+        background-color: rgb(0, 0, 38);
+        margin-right: 5rem !important;
+        border-radius: 1rem 1rem 1rem 0;
+    }
+    .from-you {
+        background-color: rgb(7, 7, 31);
+        margin-left: 5rem !important;
+        border-radius: 1rem 1rem 0 1rem;
+    }
+    .message > p {
+        text-align: center;
+    }
+    .message > ul {
+        margin: 0;
+        padding: 0;
+    }
+    .message > ul li {
+        list-style-type: none;
+        background-color: rgb(15, 15, 67);
+        text-align: center;
+        padding: 0.5rem;
+        border: 2px solid blue;
+        transition: all ease-in-out 0.2s;
+        max-width: 500px;
+        display: block;
+        margin: 0 auto;
+        cursor: pointer;
+    }
+    .message > ul li:hover {
+        background-color: rgb(7, 7, 31);
+    }
+    .message > ul li:active {
+        border: 2px solid transparent;
+    }
+</style>
+<div id="chat-body">
+    <div id="sticky-head">
+        <img src="{UPLOADS_URL}/bot.png"/>
+        <span>Chat Bot</span>
+    </div>
+    <div id="history">
+    </div>
+    <div id="input-div">
+        <input id="msg-input"/><img src="{UPLOADS_URL}/send-message.png" id="send-btn"/>
+    </div>
+</div>
+<script src="https://code.jquery.com/jquery-3.7.0.min.js" integrity="sha256-2Pmvv0kuTBOenSvLm6bvfBSSHrUJ+3A7x6P5Ebd07/g=" crossorigin="anonymous"></script>
+<script>
+    let waiting = false;
+    let select =  false;
+    let chatIndex = 0;
+    let chats = [];
+    let userData = {};
+    const history = document.getElementById("history");
+    const userMsg = document.getElementById("msg-input");
+    jQuery.ajax({
+    url: '{AJAX_URL}/get-chats',
+    type: 'GET',
+    success: function (response) {
+        chats = response;
+        chatWithUser();
+    },
+    error: function (jqXHR, textStatus, errorThrown) {
+        console.log('AJAX request failed: ', errorThrown);
+    }
+    });
+    async function chatWithUser() {
+        while (chatIndex < chats.length) {
+            const chat = chats[chatIndex];
+            if (chat.type == 'normal') {
+                const newMsg = document.createElement('div');
+                newMsg.classList.add('message', 'from-bot');
+                newMsg.innerText = chat.msg;
+                history.appendChild(newMsg);
+                history.scrollTop = history.scrollHeight;
+            }else if (chat.type == 'ai-msg') {
+                const prompt = `You are a user data collection tool. Every message you get is a user-generated input from my chatting system. ${chat.prompt}.
+
+The only rules to follow are:
+- Reply politely
+	
+Reply with the following JSON:
+	
+{
+	"reply": "foo_reply"
+}
+	
+The "reply" key is the reply message will be sent back to user`;
+                const response = await fetchReply(prompt);
+                const answer = response.reply;
+                const newMsg = document.createElement('div');
+                newMsg.classList.add('message', 'from-bot');
+                newMsg.innerText = answer;
+                history.appendChild(newMsg);
+                history.scrollTop = history.scrollHeight;
+            }else if (chat.type == 'ai-qry') {
+                if (!waiting) {
+                    waiting = true;
+                    return;
+                }
+                const lastMsg = history.lastElementChild.innerText;
+                const prompt = `You are a user data collection tool. Every message you get is a user-generated input from my chatting system. Tell me if message it contains ${chat.query} or not.
+if yes:
+- ${chat.success}
+otherwise:
+- ${chat.elsecase}
+ 
+The only rules to follow are:
+- Reply politely
+- Ask with Please
+ 
+Reply with the following JSON:
+ 
+{
+    "pass": true,
+    "${chat.key}": "foo_${chat.key}",
+    "reply": "foo_reply"
+}
+ 
+The "reply" key is the reply message will be sent back to user
+
+message: ${lastMsg}`;
+                const key = chat.key;
+                const response = await fetchReply(prompt);
+                const answer = response.reply;
+                const newMsg = document.createElement('div');
+                newMsg.classList.add('message', 'from-bot');
+                newMsg.innerText = answer;
+                history.appendChild(newMsg);
+                history.scrollTop = history.scrollHeight;
+                waiting = false;
+                if (!response.pass) {
+                    continue;
+                } else {
+                    userData[key] = response[key];
+                }
+            }else if (chat.type == 'option') {
+                if (!select) {
+                    const options = chat.options;
+                    const newMsg = document.createElement('div');
+                    newMsg.classList.add('message', 'from-bot');
+                    newMsg.innerHTML = `<p>${chat.optionname}</p>
+                    <ul>
+                        ${options.map(option => `<li onclick="itemSelected(this)">${option}</li>`).join('')}
+                    </ul>`;
+                    history.appendChild(newMsg);
+                    history.scrollTop = history.scrollHeight;
+                    select = true;
+                    return;
+                } else {
+                    select = false;
+                }
+            }
+            chatIndex++;
+        }
+        if (Object.keys(userData).length > 0) {
+            jQuery.ajax({
+                url: '{AJAX_URL}/save-user-data',
+                type: 'POST',
+                data: {
+                    'data': userData
+                },
+            });
+        }
+    }
+    async function itemSelected(item) {
+        if (select) {
+            const selectedValue = item.innerText;
+            history.lastElementChild.innerHTML = item.parentNode.parentNode.querySelector('p').innerText;
+            const newMsg = document.createElement("div");
+            newMsg.classList.add("message", "from-you");
+            newMsg.innerHTML = selectedValue;
+            history.appendChild(newMsg);
+            history.scrollTop = history.scrollHeight;
+            waiting =  true;
+            chatWithUser();
+        }
+    }
+    function fetchReply(prompt) {
+        return fetch('{AJAX_URL}/get-reply', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                'prompt': prompt,
+            }),
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .catch(error => {
+            throw new Error('Error fetching the reply: ' + error.message);
+        });
+    }
+    sendBtn = document.getElementById("send-btn");
+    sendBtn.addEventListener("click", function () {
+        const inputMessage = userMsg.value.trim();
+        if (inputMessage != '') {
+            if(waiting) {
+                const newMsg = document.createElement("div");
+                newMsg.classList.add("message", "from-you");
+                newMsg.innerHTML = inputMessage;
+                history.appendChild(newMsg);
+                history.scrollTop = history.scrollHeight;
+                userMsg.value = '';
+                chatWithUser();
+            }
+        }
+    });
+</script>
